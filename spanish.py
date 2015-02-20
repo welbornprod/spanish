@@ -17,7 +17,7 @@ import re
 import sys
 
 NAME = 'Spanish'
-VERSION = '0.0.2-1'
+VERSION = '0.0.2-2'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
 SCRIPT = os.path.split(sys.argv[0])[-1]
 
@@ -30,10 +30,10 @@ USAGESTR = """{versionstr}
         {script} [-D] [-r] [-s] <query>
 
     Options:
-        <query>       : English word to translate.
+        <query>       : Word to translate.
         -D,--debug    : Debug mode, shows extra information.
         -h,--help     : Show this help message.
-        -r,--reverse  : Spanish word to translate.
+        -r,--reverse  : Translate a spanish word instead.
         -s,--nosort   : Don't ever sort the results (faster).
         -v,--version  : Show version.
 """.format(script=SCRIPT, versionstr=VERSIONSTR)

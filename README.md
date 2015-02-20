@@ -14,10 +14,10 @@ Usage:
     spanish [-D] [-r] [-s] <query>
 
 Options:
-    <query>       : English word to translate.
+    <query>       : Word to translate.
     -D,--debug    : Debug mode, shows extra information.
     -h,--help     : Show this help message.
-    -r,--reverse  : Spanish word to translate.
+    -r,--reverse  : Translate a spanish word instead.
     -s,--nosort   : Don't ever sort the results (faster).
     -v,--version  : Show version.
 ```
