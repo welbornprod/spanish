@@ -71,13 +71,24 @@ def main(argd):
     query = argd['<query>'].lower()
     print('Searching for: {}'.format(query))
     print('...{} to {}\n'.format(searchtypes[searchtype], searchtype))
+    # Rules for formatting (spanish to english has some long "words").
+    wordrjust = 25
+    trans_indent_maxlen = wordrjust + 3
+    trans_indent = ' ' * trans_indent_maxlen
+    trans_maxlen = 80 - trans_indent_maxlen
+
     starttime = datetime.now()
     found = 0
     try:
         for word, worddata in search(query, sort=(not argd['--nosort'])):
             found += 1
-            wordfmt = word.rjust(20)
-            transfmt = '; '.join(worddata[searchtype])
+            wordfmt = word.rjust(wordrjust)
+            transfmt = format_block(
+                ', '.join(worddata[searchtype]),
+                blocksize=trans_maxlen,
+                prepend=trans_indent,
+                lstrip=True,
+                spaces=True)
             print('{} : {}'.format(wordfmt, transfmt))
     except (InvalidFile, InvalidQuery) as excancel:
         print('\n{}'.format(excancel))
@@ -122,6 +133,23 @@ def duration_str(starttime):
     """ Return time-elapsed in string format. """
     secs = (datetime.now() - starttime).total_seconds()
     return '{:0.2f}'.format(secs)
+
+
+def eng_to_es(data):
+    """ Transform the english data to spanish data, for when the english
+        version changes. This is only used in development.
+    """
+    transformed = {}
+    for word, wdata in data.items():
+        for spanish in wdata['spanish']:
+            if transformed.get(spanish, None):
+                transformed[spanish]['english'].add(word)
+            else:
+                transformed[spanish] = {
+                    'english': {word},
+                    'pronounce': wdata['pronounce']
+                }
+    return transformed
 
 
 def ensure_files(*args):
@@ -207,6 +235,69 @@ def find_text(query, filename=None, sort=None):
                             indef[1]['spanish'].append(spanish)
     except EnvironmentError as ex:
         raise InvalidFile(str(ex)) from ex
+
+
+def format_block(
+        text,
+        prepend=None, lstrip=False, blocksize=60,
+        spaces=False, newlines=False):
+    """ Format a long string into a block of newline seperated text. """
+    lines = make_block(
+        text,
+        blocksize=blocksize,
+        spaces=spaces,
+        newlines=newlines)
+    if prepend is None:
+        return '\n'.join(lines)
+    if lstrip:
+        # Add 'prepend' before each line, except the first.
+        return '\n{}'.format(prepend).join(lines)
+    # Add 'prepend' before each line.
+    return '{}{}'.format(prepend, '\n{}'.format(prepend).join(lines))
+
+
+def make_block(text, blocksize=60, spaces=False, newlines=False):
+    """ Turns a long string into a list of lines no greater than 'blocksize'
+        in length. This can wrap on spaces, instead of chars if wrap_spaces
+        is truthy.
+    """
+    if not spaces:
+        # Simple block by chars.
+        return (text[i:i + blocksize] for i in range(0, len(text), blocksize))
+    if newlines:
+        # Preserve newlines
+        lines = []
+        for line in text.split('\n'):
+            lines.extend(make_block(line, blocksize=blocksize, spaces=True))
+        return lines
+
+    # Wrap on spaces (ignores newlines)..
+    words = text.split()
+    lines = []
+    curline = ''
+    for word in words:
+        possibleline = ' '.join((curline, word)) if curline else word
+
+        if len(possibleline) > blocksize:
+            lines.append(curline)
+            curline = word
+        else:
+            curline = possibleline
+    if curline:
+        lines.append(curline)
+    return lines
+
+
+def remove_junk(data):
+    """ Removes junk numbers from spanish words. This is only used in
+        development, data updates.
+    """
+    fixed = {}
+    for word, wdata in data.items():
+        fixed[word] = {'pronounce': wdata['pronounce'], 'spanish': set()}
+        for spanish in wdata['spanish']:
+            fixed[word]['spanish'].add(re.sub('^\d{1,3}\.', '', spanish))
+    return fixed
 
 
 class InvalidFile(Exception):
