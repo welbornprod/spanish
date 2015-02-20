@@ -17,7 +17,7 @@ import re
 import sys
 
 NAME = 'Spanish'
-VERSION = '0.0.2'
+VERSION = '0.0.2-1'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
 SCRIPT = os.path.split(sys.argv[0])[-1]
 
