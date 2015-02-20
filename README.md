@@ -8,7 +8,7 @@ used for quick lookups for spanish to english, or english to spanish.
 Usage:
 ------
 
-```bash
+```
 Usage:
     spanish -h | -v
     spanish [-D] [-r] [-s] <query>
@@ -26,12 +26,12 @@ Examples:
 --------
 
 Look up the spanish word for 'high':
-```bash
+```
 spanish high
 ```
 
 Results:
-```bash
+```
             high : alto
        high tide : plemear
    super highway : autovía
@@ -39,12 +39,12 @@ Results:
 ```
 
 Look up the english word for 'alto':
-```bash
+```
 spanish -r alto
 ```
 
 Results:
-```bash
+```
             alto : lofty; contralto; high; contralto voice; loud; tall
          asfalto : asphalt
          basalto : basalt; whimstone
@@ -56,7 +56,7 @@ Dependencies:
 
 It uses [docopt](http://docopt.org) to parse command-line arguments.
 You can install it with [pip](https://pip.pypa.io/en/latest/installing.html):
-```bash
+```
 pip install docopt
 ```
 
@@ -64,7 +64,7 @@ Notes:
 ------
 
 I recommend creating a symlink to this somewhere in your `$PATH`:
-```bash
+```
 ln -s /path/to/spanish.py ~/.local/bin/spanish
 ```
 
