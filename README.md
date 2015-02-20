@@ -11,14 +11,18 @@ Usage:
 ```
 Usage:
     spanish -h | -v
-    spanish [-D] [-r] [-s] <query>
+    spanish (-c | -j) [-D]
+    spanish <query> [-D] [-t | -r] [-s]
 
 Options:
     <query>       : Word to translate.
+    -c,--create   : Create new pickle data from the original text file.
     -D,--debug    : Debug mode, shows extra information.
     -h,--help     : Show this help message.
+    -j,--json     : Create new json data from the original text file.
     -r,--reverse  : Translate a spanish word instead.
     -s,--nosort   : Don't ever sort the results (faster).
+    -t,--text     : Force using the original text file.
     -v,--version  : Show version.
 ```
 
