@@ -11,6 +11,7 @@ from datetime import datetime
 from docopt import docopt
 from functools import partial
 import inspect
+import json
 import os
 import pickle
 import re
@@ -27,14 +28,18 @@ USAGESTR = """{versionstr}
 
     Usage:
         {script} -h | -v
-        {script} [-D] [-r] [-s] <query>
+        {script} (-c | -j) [-D]
+        {script} <query> [-D] [-t | -r] [-s]
 
     Options:
         <query>       : Word to translate.
+        -c,--create   : Create new pickle data from the original text file.
         -D,--debug    : Debug mode, shows extra information.
         -h,--help     : Show this help message.
+        -j,--json     : Create new json data from the original text file.
         -r,--reverse  : Translate a spanish word instead.
         -s,--nosort   : Don't ever sort the results (faster).
+        -t,--text     : Force using the original text file.
         -v,--version  : Show version.
 """.format(script=SCRIPT, versionstr=VERSIONSTR)
 
@@ -48,6 +53,9 @@ def main(argd):
     global debug
     if not argd['--debug']:
         debug = dummy
+    # Create mode?
+    if argd['--create'] or argd['--json']:
+        return create_files(use_json=argd['--json'])
 
     searchtypes = {'english': 'spanish', 'spanish': 'english'}
     if argd['--reverse']:
@@ -58,7 +66,7 @@ def main(argd):
         search = partial(find_pickle, filename=ES_PKL)
     else:
         searchtype = 'spanish'
-        if os.path.exists(ENG_PKL):
+        if (not argd['--text']) and os.path.exists(ENG_PKL):
             search = partial(find_pickle, filename=ENG_PKL)
         elif os.path.exists(ENG_TXT):
             search = partial(find_text, filename=ENG_TXT)
@@ -104,6 +112,68 @@ def main(argd):
         translbl = 'translation' if found == 1 else 'translations'
         print('\nFound {} {} for: {}'.format(found, translbl, argd['<query>']))
         print('({}s)'.format(duration_str(starttime)))
+    return 0
+
+
+def create_files(use_json=False):
+    """ Recreate the pickle files, or create json files from the original text.
+    """
+    if use_json:
+        datatype = 'JSON'
+        fileext = '.json'
+        filemode = 'w'
+        dump = json.dump
+        adapt = lambda d: {
+            k: (list(v) if isinstance(v, set) else v)
+            for k, v in d.items()
+        }
+    else:
+        datatype = 'pickle'
+        fileext = '.pkl'
+        filemode = 'wb'
+        dump = pickle.dump
+        adapt = lambda d: d
+
+    debug('Creating english data...')
+    try:
+        eng = {
+            w: adapt(wdata)
+            for w, wdata in find_text('.+', filename=ENG_TXT)
+        }
+    except InvalidFile as ex:
+        print('\nUnable to read english data: {}\n{}'.format(ENG_TXT, ex))
+        return 1
+
+    engfile = 'english-to-spanish{}'.format(fileext)
+    if os.path.exists(engfile):
+        engfile = '{}.new'.format(engfile)
+    debug('Writing english file: {}'.format(engfile))
+    try:
+        with open(engfile, filemode) as feng:
+            dump(eng, feng)
+    except Exception as ex:
+        print('\nFailed to create english {} data: {}'.format(datatype, ex))
+        return 1
+    else:
+        print('\nCreated english data: {}'.format(engfile))
+
+    debug('Creating spanish data...')
+    es = eng_to_es(eng)
+    if use_json:
+        es = {k: adapt(v) for k, v in es.items()}
+    esfile = 'spanish-to-english{}'.format(fileext)
+    if os.path.exists(esfile):
+        esfile = '{}.new'.format(esfile)
+    debug('Writing spanish file: {}'.format(esfile))
+    try:
+        with open(esfile, filemode) as fes:
+            dump(es, fes)
+    except Exception as ex:
+        print('\nFailed to create spanish {} data: {}'.format(datatype, ex))
+        return 1
+    else:
+        print('\nCreated spanish data: {}'.format(esfile))
+
     return 0
 
 
@@ -190,10 +260,11 @@ def find_text(query, filename=None, sort=None):
     """ Search the original text file. """
     debug('Text mode, using file: {}'.format(filename))
     try:
-        querypat = re.compile(query)
+        querypat = re.compile(query, re.IGNORECASE)
     except re.error as ex:
         raise InvalidQuery('Invalid query: {}\n    {}'.format(query, ex))
 
+    clean = lambda w: re.sub('^\d{1,3}\.', '', w.strip())
     indef = None
     engword = None
     # Parse english word lines.
@@ -213,7 +284,7 @@ def find_text(query, filename=None, sort=None):
                     wordmatch = defpat.search(line)
                     if wordmatch is not None:
                         # Set new word basic info..
-                        word, pron = defpat.search(line).groups()
+                        word, pron = wordmatch.groups()
                         pron = pron.strip()
                         word = word.strip().lower()
                     else:
@@ -222,17 +293,21 @@ def find_text(query, filename=None, sort=None):
                     # Does this word match?
                     if querypat.search(word) is not None:
                         engword = word
-                        indef = (engword, {'pronounce': pron, 'spanish': []})
+                        indef = (
+                            engword,
+                            {'pronounce': pron, 'spanish': set()})
                     else:
                         engword = None
                         indef = None
                 else:
                     # In spanish words.
                     if engword and indef:
-                        spanish = line.strip().lower()
-                        # Don't add duplicate words (the db has dupes)
-                        if spanish not in indef[1]['spanish']:
-                            indef[1]['spanish'].append(spanish)
+                        spanish = line.strip()
+                        if ',' in spanish:
+                            spanish = (clean(s) for s in spanish.split(','))
+                            indef[1]['spanish'].update(spanish)
+                        else:
+                            indef[1]['spanish'].add(clean(spanish))
     except EnvironmentError as ex:
         raise InvalidFile(str(ex)) from ex
 
